@@ -1,3 +1,62 @@
+# Dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
 .cache
 build
-node_modules
+dist
+.next
+.nuxt
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Version control
+.git
+.gitignore
+
+# IDE and editor files
+.DS_Store
+.vscode
+.idea
+
+# Logs
+*.log
+coverage
+.nyc_output
+
+# Deployment files
+docker-compose.yml
+docker-compose.*.yml
+Dockerfile*
+.dockerignore
+ssl/
+data/
+backup.sql
+
+# Documentation
+README.md
+CHANGELOG.md
+LICENSE.md
+*.md
+
+# Config files
+.github
+.prettierrc
+.eslintrc*
+.editorconfig
+
+# Archives
+*.tar.gz
+*.zip
+
+# Deployment and hosting
+.vercel
+.netlify
