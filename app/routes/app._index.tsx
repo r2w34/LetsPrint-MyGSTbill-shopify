@@ -82,9 +82,6 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 export default function Dashboard() {
   const { isConfigured, stats, recentOrders, error } = useLoaderData<typeof loader>();
 
-  // Debug: Add console log to check if component is rendering
-  console.log("Dashboard component rendering:", { isConfigured, error });
-
   if (error) {
     return (
       <s-page heading="LetsPrint - Error">

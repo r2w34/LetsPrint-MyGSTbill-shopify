@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Embedded App Functionality</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f6f6f7;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .iframe-container {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        iframe {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007cba;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #005a87; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 LetsPrint App - Embedded Functionality Test</h1>
+        
+        <div class="test-section">
+            <h2>📊 Test Results</h2>
+            <div id="test-results">
+                <div class="status info">🔄 Ready to test embedded app functionality...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎮 Test Controls</h2>
+            <button onclick="testEmbedAuth()">Test Embed Auth Route</button>
+            <button onclick="testAppRoute()">Test App Route</button>
+            <button onclick="testSessionToken()">Test Session Token</button>
+            <button onclick="testCSPHeaders()">Test CSP Headers</button>
+            <button onclick="clearLog()">Clear Log</button>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Test Log</h2>
+            <div id="test-log" class="log">Test log will appear here...</div>
+        </div>
+
+        <div class="test-section">
+            <h2>🖼️ Embedded App Preview</h2>
+            <p>This simulates how the app appears in Shopify admin iframe:</p>
+            <div class="iframe-container">
+                <iframe id="app-iframe" src="about:blank"></iframe>
+            </div>
+            <button onclick="loadEmbeddedApp()">Load App in Iframe</button>
+            <button onclick="loadEmbedAuth()">Load Embed Auth</button>
+        </div>
+    </div>
+
+    <script>
+        const log = document.getElementById('test-log');
+        const results = document.getElementById('test-results');
+        const iframe = document.getElementById('app-iframe');
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}\n`;
+            log.textContent += logEntry;
+            log.scrollTop = log.scrollHeight;
+            
+            console.log(message);
+        }
+
+        function addResult(message, type = 'info') {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `status ${type}`;
+            resultDiv.textContent = message;
+            results.appendChild(resultDiv);
+        }
+
+        function clearLog() {
+            log.textContent = 'Test log cleared...\n';
+            results.innerHTML = '<div class="status info">🔄 Ready to test embedded app functionality...</div>';
+        }
+
+        async function testEmbedAuth() {
+            addLog('🧪 Testing embed-auth route...');
+            try {
+                const response = await fetch('https://letsprint.mygstbill.com/embed-auth?shop=test-store.myshopify.com');
+                addLog(`📡 Response status: ${response.status} ${response.statusText}`);
+                
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                    headers[key] = value;
+                });
+                
+                addLog(`🔒 X-Frame-Options: ${headers['x-frame-options'] || 'Not set'}`);
+                addLog(`🛡️ CSP: ${headers['content-security-policy'] ? 'Set' : 'Not set'}`);
+                
+                if (response.ok) {
+                    const text = await response.text();
+                    if (text.includes('Connecting to Shopify')) {
+                        addResult('✅ Embed auth route working correctly', 'success');
+                        addLog('✅ Embed auth HTML contains expected content');
+                    } else {
+                        addResult('⚠️ Embed auth route returns unexpected content', 'error');
+                        addLog('❌ Embed auth HTML missing expected content');
+                    }
+                } else {
+                    addResult(`❌ Embed auth route failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Error testing embed auth: ${error.message}`);
+                addResult('❌ Embed auth test failed', 'error');
+            }
+        }
+
+        async function testAppRoute() {
+            addLog('🧪 Testing app route with shop parameter...');
+            try {
+                const response = await fetch('https://letsprint.mygstbill.com/app?shop=test-store.myshopify.com', {
+                    redirect: 'manual'
+                });
+                
+                addLog(`📡 Response status: ${response.status} ${response.statusText}`);
+                
+                if (response.status === 302) {
+                    const location = response.headers.get('location');
+                    addLog(`🔄 Redirect location: ${location}`);
+                    
+                    if (location && location.includes('/embed-auth')) {
+                        addResult('✅ App route redirects to embed-auth correctly', 'success');
+                    } else {
+                        addResult('⚠️ App route redirects to unexpected location', 'error');
+                    }
+                } else {
+                    addResult(`❌ App route returned unexpected status: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`❌ Error testing app route: ${error.message}`);
+                addResult('❌ App route test failed', 'error');
+            }
+        }
+
+        async function testSessionToken() {
+            addLog('🧪 Testing session token route...');
+            try {
+                const response = await fetch('https://letsprint.mygstbill.com/auth/session-token');
+                addLog(`📡 Response status: ${response.status} ${response.statusText}`);
+                
+                if (response.status === 401 || response.status === 403) {
+                    addResult('✅ Session token route properly requires authentication', 'success');
+                    addLog('✅ Session token route correctly rejects unauthenticated requests');
+                } else if (response.ok) {
+                    addResult('✅ Session token route accessible', 'success');
+                    addLog('✅ Session token route responds correctly');
+                } else {
+                    addResult(`⚠️ Session token route returned: ${response.status}`, 'info');
+                }
+            } catch (error) {
+                addLog(`❌ Error testing session token: ${error.message}`);
+                addResult('❌ Session token test failed', 'error');
+            }
+        }
+
+        async function testCSPHeaders() {
+            addLog('🧪 Testing CSP headers...');
+            try {
+                const response = await fetch('https://letsprint.mygstbill.com/embed-auth?shop=test-store.myshopify.com');
+                
+                const csp = response.headers.get('content-security-policy');
+                const xFrame = response.headers.get('x-frame-options');
+                
+                addLog(`🔒 X-Frame-Options: ${xFrame}`);
+                addLog(`🛡️ CSP: ${csp ? csp.substring(0, 100) + '...' : 'Not set'}`);
+                
+                let cspScore = 0;
+                if (csp) {
+                    if (csp.includes('frame-ancestors *')) cspScore++;
+                    if (csp.includes('connect-src')) cspScore++;
+                    if (csp.includes('data:')) cspScore++;
+                    if (csp.includes('blob:')) cspScore++;
+                    if (csp.includes('unsafe-inline')) cspScore++;
+                }
+                
+                if (xFrame === 'ALLOWALL' && cspScore >= 4) {
+                    addResult('✅ CSP headers properly configured for embedded apps', 'success');
+                } else {
+                    addResult('⚠️ CSP headers may need adjustment', 'error');
+                }
+                
+            } catch (error) {
+                addLog(`❌ Error testing CSP headers: ${error.message}`);
+                addResult('❌ CSP headers test failed', 'error');
+            }
+        }
+
+        function loadEmbeddedApp() {
+            addLog('🖼️ Loading app in iframe...');
+            iframe.src = 'https://letsprint.mygstbill.com/app?shop=test-store.myshopify.com';
+            
+            iframe.onload = function() {
+                addLog('✅ Iframe loaded successfully');
+                addResult('✅ App loads in iframe without blocking', 'success');
+            };
+            
+            iframe.onerror = function() {
+                addLog('❌ Iframe failed to load');
+                addResult('❌ App blocked in iframe', 'error');
+            };
+        }
+
+        function loadEmbedAuth() {
+            addLog('🖼️ Loading embed-auth in iframe...');
+            iframe.src = 'https://letsprint.mygstbill.com/embed-auth?shop=test-store.myshopify.com';
+            
+            iframe.onload = function() {
+                addLog('✅ Embed-auth iframe loaded successfully');
+                addResult('✅ Embed-auth loads in iframe', 'success');
+            };
+            
+            iframe.onerror = function() {
+                addLog('❌ Embed-auth iframe failed to load');
+                addResult('❌ Embed-auth blocked in iframe', 'error');
+            };
+        }
+
+        // Listen for messages from iframe
+        window.addEventListener('message', function(event) {
+            if (event.origin === 'https://letsprint.mygstbill.com') {
+                addLog(`📨 Message from iframe: ${JSON.stringify(event.data)}`);
+            }
+        });
+
+        // Auto-run basic tests on load
+        window.onload = function() {
+            addLog('🚀 Starting automated tests...');
+            setTimeout(testCSPHeaders, 1000);
+            setTimeout(testEmbedAuth, 2000);
+            setTimeout(testAppRoute, 3000);
+            setTimeout(testSessionToken, 4000);
+        };
+    </script>
+</body>
+</html>
