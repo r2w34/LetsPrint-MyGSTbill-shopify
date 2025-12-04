@@ -3,7 +3,6 @@ import { useLoaderData, Link } from "react-router";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
 import { PrismaClient } from "@prisma/client";
-import { InvoiceService } from "../lib/services/invoice-service";
 
 const prisma = new PrismaClient();
 
@@ -11,74 +10,58 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { session, admin } = await authenticate.admin(request);
 
   try {
-    // Check if business settings are configured
-    const businessSettings = await prisma.businessSettings.findUnique({
-      where: { shop: session.shop },
-    });
+    // Check if business settings are configured (simplified for now)
+    let businessSettings = null;
+    try {
+      businessSettings = await prisma.businessSettings.findUnique({
+        where: { shop: session.shop },
+      });
+    } catch (dbError) {
+      console.log("Business settings table may not exist yet:", dbError);
+    }
 
     const isConfigured = !!businessSettings?.gstin;
 
-    let stats = null;
-    let recentOrders = null;
+    // Simple stats for now
+    const stats = {
+      this_month_invoices: 0,
+      pending_invoices: 0,
+      total_revenue: 0,
+      total_gst_collected: 0,
+    };
 
-    if (isConfigured) {
-      // Get invoice statistics
-      const invoiceService = new InvoiceService(prisma);
-      stats = await invoiceService.getInvoiceStats(session.shop);
-
-      // Get recent orders
-      const ordersResponse = await admin.graphql(`
-        query getRecentOrders {
-          orders(first: 10, sortKey: CREATED_AT, reverse: true) {
-            edges {
-              node {
-                id
-                name
-                createdAt
-                totalPriceSet {
-                  shopMoney {
-                    amount
-                    currencyCode
-                  }
+    // Get recent orders
+    const ordersResponse = await admin.graphql(`
+      query getRecentOrders {
+        orders(first: 5, sortKey: CREATED_AT, reverse: true) {
+          edges {
+            node {
+              id
+              name
+              createdAt
+              totalPriceSet {
+                shopMoney {
+                  amount
+                  currencyCode
                 }
-                financialStatus
-                fulfillmentStatus
-                customer {
-                  firstName
-                  lastName
-                  email
-                }
+              }
+              financialStatus
+              fulfillmentStatus
+              customer {
+                firstName
+                lastName
+                email
               }
             }
           }
         }
-      `);
+      }
+    `);
 
-      recentOrders = ordersResponse.body?.data?.orders?.edges?.map((edge: any) => edge.node) || [];
-
-      // Check which orders have invoices
-      const orderIds = recentOrders.map((order: any) => order.id);
-      const existingInvoices = await prisma.invoice.findMany({
-        where: {
-          shop: session.shop,
-          order_id: { in: orderIds },
-        },
-        select: {
-          order_id: true,
-          invoice_number: true,
-          status: true,
-        },
-      });
-
-      const invoiceMap = new Map(
-        existingInvoices.map(inv => [inv.order_id, inv])
-      );
-
-      recentOrders = recentOrders.map((order: any) => ({
-        ...order,
-        invoice: invoiceMap.get(order.id) || null,
-      }));
-    }
+    const recentOrders = ordersResponse.body?.data?.orders?.edges?.map((edge: any) => ({
+      ...edge.node,
+      invoice: null, // Simplified for now
+    })) || [];
 
     return {
       isConfigured,
@@ -98,6 +81,9 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 
 export default function Dashboard() {
   const { isConfigured, stats, recentOrders, error } = useLoaderData<typeof loader>();
+
+  // Debug: Add console log to check if component is rendering
+  console.log("Dashboard component rendering:", { isConfigured, error });
 
   if (error) {
     return (
