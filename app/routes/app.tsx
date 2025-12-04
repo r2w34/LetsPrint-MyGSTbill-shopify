@@ -6,24 +6,31 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
-  // Check if this is an embedded app installation request
-  const url = new URL(request.url);
-  const shop = url.searchParams.get("shop");
-  
-  if (shop) {
-    // Redirect to embedded auth handler to prevent iframe blocking
-    throw new Response(null, {
-      status: 302,
-      headers: {
-        Location: `/embed-auth?shop=${shop}`,
-      },
-    });
+  try {
+    // Try to authenticate first
+    await authenticate.admin(request);
+    
+    // If authentication succeeds, return the API key
+    // eslint-disable-next-line no-undef
+    return { apiKey: process.env.SHOPIFY_API_KEY || "" };
+  } catch (error) {
+    // If authentication fails, check if this is an embedded app installation request
+    const url = new URL(request.url);
+    const shop = url.searchParams.get("shop");
+    
+    if (shop) {
+      // Redirect to embedded auth handler to prevent iframe blocking
+      throw new Response(null, {
+        status: 302,
+        headers: {
+          Location: `/embed-auth?shop=${shop}`,
+        },
+      });
+    }
+    
+    // If no shop parameter and authentication failed, re-throw the error
+    throw error;
   }
-
-  await authenticate.admin(request);
-
-  // eslint-disable-next-line no-undef
-  return { apiKey: process.env.SHOPIFY_API_KEY || "" };
 };
 
 export default function App() {
