@@ -1,0 +1,272 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note that some adapters may set a maximum length for the String type by default, please ensure your strings are long
+// enough when changing adapters.
+// See https://www.prisma.io/docs/orm/reference/prisma-schema-reference#string for more information
+datasource db {
+  provider = "sqlite"
+  url      = "file:dev.sqlite"
+}
+
+model Session {
+  id            String    @id
+  shop          String
+  state         String
+  isOnline      Boolean   @default(false)
+  scope         String?
+  expires       DateTime?
+  accessToken   String
+  userId        BigInt?
+  firstName     String?
+  lastName      String?
+  email         String?
+  accountOwner  Boolean   @default(false)
+  locale        String?
+  collaborator  Boolean?  @default(false)
+  emailVerified Boolean?  @default(false)
+}
+
+model BusinessSettings {
+  id                    String   @id @default(cuid())
+  shop                  String   @unique
+  legal_name            String
+  trading_name          String?
+  gstin                 String
+  state_code            String
+  address_line_1        String
+  address_line_2        String?
+  city                  String
+  state                 String
+  pin_code              String
+  country               String   @default("India")
+  phone                 String
+  email                 String
+  website               String?
+  bank_name             String?
+  account_holder_name   String?
+  account_number        String?
+  ifsc_code             String?
+  branch_name           String?
+  account_type          String?
+  logo_url              String?
+  signature_url         String?
+  signatory_name        String?
+  signatory_designation String?
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+}
+
+model InvoiceSettings {
+  id                    String   @id @default(cuid())
+  shop                  String   @unique
+  prefix                String   @default("INV")
+  starting_number       Int      @default(1)
+  current_sequence      Int      @default(0)
+  reset_frequency       String   @default("YEARLY") // NEVER, MONTHLY, QUARTERLY, YEARLY
+  template_type         String   @default("CLASSIC") // CLASSIC, MODERN, MINIMAL, DETAILED
+  due_days              Int      @default(30)
+  show_bank_details     Boolean  @default(true)
+  show_signature        Boolean  @default(true)
+  show_logo             Boolean  @default(true)
+  show_hsn              Boolean  @default(true)
+  show_customer_gst     Boolean  @default(true)
+  terms_and_conditions  String?
+  notes                 String?
+  payment_instructions  String?
+  auto_generate         Boolean  @default(false)
+  auto_email            Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+}
+
+model Invoice {
+  id                   String            @id @default(cuid())
+  shop                 String
+  invoice_number       String            @unique
+  order_id             String            // Shopify order ID
+  order_number         String            // Shopify order number
+  invoice_date         DateTime
+  due_date             DateTime
+  customer_name        String
+  customer_email       String
+  customer_phone       String?
+  billing_address      String            // JSON string
+  shipping_address     String            // JSON string
+  customer_gstin       String?
+  warehouse_id         String?
+  subtotal             Float
+  cgst_amount          Float
+  sgst_amount          Float
+  igst_amount          Float
+  shipping_charge      Float
+  shipping_tax         Float
+  discount_amount      Float             @default(0)
+  round_off            Float             @default(0)
+  total_amount         Float
+  status               InvoiceStatus     @default(DRAFT)
+  pdf_url              String?
+  email_sent_at        DateTime?
+  is_credit_note       Boolean           @default(false)
+  original_invoice_id  String?
+  created_at           DateTime          @default(now())
+  updated_at           DateTime          @updatedAt
+  
+  line_items           InvoiceLineItem[]
+  original_invoice     Invoice?          @relation("CreditNote", fields: [original_invoice_id], references: [id])
+  credit_notes         Invoice[]         @relation("CreditNote")
+  
+  @@index([shop])
+  @@index([order_id])
+  @@index([invoice_date])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model InvoiceLineItem {
+  id             String  @id @default(cuid())
+  invoice_id     String
+  product_id     String  // Shopify product ID
+  variant_id     String? // Shopify variant ID
+  title          String
+  sku            String?
+  quantity       Int
+  unit_price     Float
+  discount       Float   @default(0)
+  hsn_code       String
+  gst_rate       Float
+  cgst_amount    Float
+  sgst_amount    Float
+  igst_amount    Float
+  taxable_value  Float
+  total_amount   Float
+  created_at     DateTime @default(now())
+  
+  invoice Invoice @relation(fields: [invoice_id], references: [id], onDelete: Cascade)
+  
+  @@index([invoice_id])
+}
+
+model ShippingLabel {
+  id               String            @id @default(cuid())
+  shop             String
+  order_id         String            // Shopify order ID
+  order_number     String
+  label_number     String            @unique
+  courier_partner  String
+  awb_number       String?
+  customer_name    String
+  customer_phone   String?
+  shipping_address String            // JSON string
+  return_address   String            // JSON string
+  product_count    Int
+  weight           Float?
+  dimensions       String?           // JSON string: {length, width, height}
+  is_cod           Boolean           @default(false)
+  cod_amount       Float?
+  label_size       String            @default("A4") // A4, A5, THERMAL_4X6
+  pdf_url          String?
+  status           ShippingStatus    @default(GENERATED)
+  created_at       DateTime          @default(now())
+  updated_at       DateTime          @updatedAt
+  
+  @@index([shop])
+  @@index([order_id])
+}
+
+enum ShippingStatus {
+  GENERATED
+  PRINTED
+  SHIPPED
+  DELIVERED
+}
+
+model ProductHSNMapping {
+  id            String   @id @default(cuid())
+  shop          String
+  product_id    String?  // Shopify product ID (nullable for collection mapping)
+  collection_id String?  // Shopify collection ID (nullable for product mapping)
+  hsn_code      String
+  gst_rate      Float
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  @@unique([shop, product_id])
+  @@unique([shop, collection_id])
+  @@index([shop])
+}
+
+model Warehouse {
+  id           String   @id @default(cuid())
+  shop         String
+  name         String
+  address_line_1 String
+  address_line_2 String?
+  city         String
+  state        String
+  state_code   String
+  pin_code     String
+  gstin        String?
+  phone        String
+  email        String?
+  is_default   Boolean  @default(false)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  @@index([shop])
+}
+
+model Subscription {
+  id                String   @id @default(cuid())
+  shop              String   @unique
+  plan_name         String
+  charge_id         String?  // Shopify billing charge ID
+  status            String   @default("ACTIVE") // ACTIVE, CANCELLED, EXPIRED
+  billing_interval  String   @default("MONTHLY") // MONTHLY, YEARLY
+  price             Float
+  invoice_limit     Int
+  invoices_used     Int      @default(0)
+  trial_ends_at     DateTime?
+  next_billing_date DateTime?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  shop        String
+  entity_type String   // invoice, label, order
+  entity_id   String
+  action      String   // created, updated, deleted, emailed, downloaded
+  user_email  String?
+  metadata    String?  // JSON string
+  ip_address  String?
+  created_at  DateTime @default(now())
+  
+  @@index([shop])
+  @@index([created_at])
+}
+
+model EmailTemplate {
+  id            String   @id @default(cuid())
+  shop          String
+  template_name String
+  subject       String
+  body          String   // HTML content
+  variables     String?  // JSON array of available variables
+  is_active     Boolean  @default(true)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+  
+  @@unique([shop, template_name])
+}
