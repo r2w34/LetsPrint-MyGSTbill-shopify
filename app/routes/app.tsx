@@ -6,6 +6,20 @@ import { AppProvider } from "@shopify/shopify-app-react-router/react";
 import { authenticate } from "../shopify.server";
 
 export const loader = async ({ request }: LoaderFunctionArgs) => {
+  // Check if this is an embedded app installation request
+  const url = new URL(request.url);
+  const shop = url.searchParams.get("shop");
+  
+  if (shop) {
+    // Redirect to embedded auth handler to prevent iframe blocking
+    throw new Response(null, {
+      status: 302,
+      headers: {
+        Location: `/embed-auth?shop=${shop}`,
+      },
+    });
+  }
+
   await authenticate.admin(request);
 
   // eslint-disable-next-line no-undef
