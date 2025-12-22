@@ -57,7 +57,7 @@
     "@types/nodemailer": "^6.4.19",
     "@types/qrcode": "^1.5.5",
     "@types/number-to-words": "^1.2.3",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/eslint-plugin": "^8.47.0",
     "@typescript-eslint/parser": "^6.21.0",
     "eslint": "^8.57.1",
     "eslint-import-resolver-typescript": "^3.10.1",
